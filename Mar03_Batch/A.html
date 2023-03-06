@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>A.html</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>A.html</h1>
+    <p>Report generated on 06-Mar-2023 at 10:06:58 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>/Library/Java/JavaVirtualMachines/jdk-17.0.3.1.jdk/Contents/Home</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "pytest": "7.1.3"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>macOS-10.16-x86_64-i386-64bit</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"allure-pytest": "2.11.1", "html": "3.2.0", "metadata": "2.0.4", "xdist": "3.2.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.8.2</td></tr></table>
+    <h2>Summary</h2>
+    <p>1 tests ran in 9.74 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_print_all_links.py::test_Print_All_Links_using_Headless_mode</td>
+          <td class="col-duration">9.70</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Done!
+
+https://www.webucator.com/
+
+https://www.webucator.com/#
+
+https://www.webucator.com/#
+
+https://www.webucator.com/#
+
+https://www.webucator.com/
+
+https://www.webucator.com/course/catalog/
+
+https://www.webucator.com/live-online-training/
+
+https://www.webucator.com/customized-private-training/
+
+https://www.webucator.com/self-paced-training/
+
+https://www.webucator.com/enterprise-training/
+
+https://www.webucator.com/about-us/training-options/
+
+https://www.webucator.com/courseware/
+
+https://www.webucator.com/about-us/pricing/
+
+https://www.webucator.com/about-us/
+
+https://www.webucator.com/account/login/
+
+https://www.webucator.com/contact/
+
+tel:+1-877-932-8228
+
+https://twitter.com/webucator
+
+https://www.facebook.com/webucator
+
+https://www.linkedin.com/companies/webucator
+
+mailto:sales@webucator.com
+
+https://www.webucator.com/#
+
+https://www.webucator.com/
+
+https://www.webucator.com/#
+
+https://www.webucator.com/account/login/
+
+https://www.webucator.com/#
+
+https://www.webucator.com/contact/
+
+tel:+1-877-932-8228
+
+https://www.webucator.com/#
+
+https://www.webucator.com/course/catalog/
+
+https://www.webucator.com/live-online-training/
+
+https://www.webucator.com/customized-private-training/
+
+https://www.webucator.com/self-paced-training/
+
+https://www.webucator.com/enterprise-training/
+
+https://www.webucator.com/about-us/training-options/
+
+https://www.webucator.com/about-us/pricing/
+
+https://www.webucator.com/courseware/
+
+https://www.webucator.com/about-us/
+LIVE ONLINE CLASSES
+https://www.webucator.com/live-online-training/
+Learn More
+https://www.webucator.com/live-online-training/
+PRIVATE CLASSES
+https://www.webucator.com/customized-private-training/
+Learn More
+https://www.webucator.com/customized-private-training/
+SELF-PACED COURSES
+https://www.webucator.com/self-paced-training/
+Learn More
+https://www.webucator.com/self-paced-training/
+ENTERPRISE SOLUTIONS
+https://www.webucator.com/enterprise-training/
+Learn More
+https://www.webucator.com/enterprise-training/
+More Testimonials
+https://www.webucator.com/about-us/testimonials/
+Browse Course Catalog
+https://www.webucator.com/course/catalog/
+
+https://www.webucator.com/python-training/course/python-essentials-training/
+Python Essentials Training
+https://www.webucator.com/python-training/course/python-essentials-training/
+more class dates
+https://www.webucator.com/python-training/course/python-essentials-training/
+
+https://www.webucator.com/microsoft-business-intelligence-training/course/power-bi-essentials/
+Power BI Essentials
+https://www.webucator.com/microsoft-business-intelligence-training/course/power-bi-essentials/
+more class dates
+https://www.webucator.com/microsoft-business-intelligence-training/course/power-bi-essentials/
+
+https://www.webucator.com/java-training/course/introduction-java-training-for-new-programmers/
+Introduction to Java Training
+https://www.webucator.com/java-training/course/introduction-java-training-for-new-programmers/
+more class dates
+https://www.webucator.com/java-training/course/introduction-java-training-for-new-programmers/
+Adobe Training
+https://www.webucator.com/catalog/adobe-training/
+Application Server Training
+https://www.webucator.com/catalog/web-application-server-training/
+Business Skills Training
+https://www.webucator.com/catalog/business-skills-training/
+Cloud Training
+https://www.webucator.com/catalog/cloud-training/
+Data Training
+https://www.webucator.com/catalog/data-training/
+Microsoft Training
+https://www.webucator.com/catalog/microsoft-training/
+Programming Training
+https://www.webucator.com/catalog/programming-training/
+Web Development Training
+https://www.webucator.com/catalog/web-development-training/
+Adobe
+https://www.webucator.com/catalog/adobe-training/
+Angular
+https://www.webucator.com/catalog/angular-training/
+ASP.NET
+https://www.webucator.com/catalog/aspnet-training/
+AWS
+https://www.webucator.com/catalog/aws-training/
+Azure
+https://www.webucator.com/catalog/azure-training/
+Business Objects
+https://www.webucator.com/catalog/business-objects-training/
+Business Skills
+https://www.webucator.com/catalog/business-skills-training/
+C#
+https://www.webucator.com/catalog/c-training/
+Captivate
+https://www.webucator.com/catalog/captivate-training/
+C/C++
+https://www.webucator.com/catalog/cc-training/
+Cloud
+https://www.webucator.com/catalog/cloud-training/
+CompTIA
+https://www.webucator.com/catalog/comptia-training/
+Crystal Reports
+https://www.webucator.com/catalog/crystal-reports-training/
+CSS
+https://www.webucator.com/catalog/css-training/
+DevOps
+https://www.webucator.com/catalog/devops-training/
+Django
+https://www.webucator.com/catalog/django-training/
+Git
+https://www.webucator.com/catalog/git-training/
+Hadoop
+https://www.webucator.com/catalog/hadoop-training/
+HTML
+https://www.webucator.com/catalog/html-training/
+IIS
+https://www.webucator.com/catalog/iis-training/
+Illustrator
+https://www.webucator.com/catalog/illustrator-training/
+InDesign
+https://www.webucator.com/catalog/indesign-training/
+Java
+https://www.webucator.com/catalog/java-training/
+JavaScript
+https://www.webucator.com/catalog/javascript-training/
+jQuery
+https://www.webucator.com/catalog/jquery-training/
+Microsoft 365 Administration
+https://www.webucator.com/catalog/microsoft-365-training/
+Microsoft Business Intelligence
+https://www.webucator.com/catalog/microsoft-business-intelligence-training/
+Microsoft Excel
+https://www.webucator.com/catalog/microsoft-excel-training/
+Microsoft Office
+https://www.webucator.com/catalog/microsoft-office-training/
+Microsoft PowerPoint
+https://www.webucator.com/catalog/microsoft-powerpoint-training/
+Microsoft Project
+https://www.webucator.com/catalog/microsoft-project-training/
+Microsoft Word
+https://www.webucator.com/catalog/microsoft-word-training/
+MySQL
+https://www.webucator.com/catalog/mysql-training/
+Oracle
+https://www.webucator.com/catalog/oracle-training/
+Photoshop
+https://www.webucator.com/catalog/photoshop-training/
+PHP
+https://www.webucator.com/catalog/php-training/
+PostgreSQL
+https://www.webucator.com/catalog/postgresql-training/
+Power Platform
+https://www.webucator.com/catalog/power-platform-training/
+PowerShell
+https://www.webucator.com/catalog/powershell-training/
+Programming
+https://www.webucator.com/catalog/programming-training/
+Python
+https://www.webucator.com/catalog/python-training/
+React
+https://www.webucator.com/catalog/react-training/
+SharePoint
+https://www.webucator.com/catalog/sharepoint-training/
+SQL Server
+https://www.webucator.com/catalog/sql-server-training/
+Tomcat
+https://www.webucator.com/catalog/tomcat-training/
+VBA
+https://www.webucator.com/catalog/vba-training/
+Vue
+https://www.webucator.com/catalog/vuejs-training/
+Web Accessibility
+https://www.webucator.com/catalog/web-accessibility-training/
+Web Development
+https://www.webucator.com/catalog/web-development-training/
+Windows Server
+https://www.webucator.com/catalog/windows-server-training/
+XML
+https://www.webucator.com/catalog/xml-training/
+Contact Us
+https://www.webucator.com/contact/
+1-877-932-8228
+tel:+1-877-932-8228
+
+https://www.webucator.com/catalog/microsoft-training/
+Learn More
+https://www.webucator.com/courseware/
+Live Online
+https://www.webucator.com/live-online-training/
+Self-Paced Courses
+https://www.webucator.com/self-paced-training/
+Customized Onsite
+https://www.webucator.com/customized-private-training/
+Enterprise Solutions
+https://www.webucator.com/enterprise-training/
+All Training Options
+https://www.webucator.com/about-us/training-options/
+Full Catalog
+https://www.webucator.com/course/catalog/
+Pricing &amp; Savings
+https://www.webucator.com/about-us/pricing/
+Contact Us
+https://www.webucator.com/contact/
+About Webucator
+https://www.webucator.com/about-us/
+Client Testimonials
+https://www.webucator.com/about-us/testimonials/
+Client List
+https://www.webucator.com/about-us/client-list/
+Privacy Policy
+https://www.webucator.com/about-us/privacy-policy/
+In The Community
+https://www.webucator.com/about-us/community/
+Train for Us
+https://www.webucator.com/jobs/trainers/
+Cancellation Policy
+https://www.webucator.com/live-online-training/cancellation/
+Make a Payment
+https://www.webucator.com/make-payment/
+Microsoft Training
+https://www.webucator.com/catalog/microsoft-training/
+Certified Microsoft Course List
+https://www.webucator.com/microsoft-training/certified-courses/
+Software Assurance Training
+https://www.webucator.com/microsoft-training/software-assurance-training-coupons/
+Newsletter
+https://www.webucator.com/newsletter/
+Setup Pages
+https://www.webucator.com/setup-pages/courses/
+Articles
+https://www.webucator.com/articles/
+Purchase Courseware
+https://www.webucator.com/courseware/
+
+https://www.facebook.com/webucator
+
+https://www.linkedin.com/companies/webucator
+
+https://twitter.com/webucator
+
+mailto:sales@webucator.com
+<br/></div></td></tr></tbody></table></body></html>

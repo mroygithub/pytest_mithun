@@ -1,0 +1,42 @@
+{
+    "DockerPageApplicationTesting": [
+      {
+        "GlobalData":
+          {
+            "testBrowser": "Chrome",
+            "applicationURL": "www.docker.com"
+          }
+        ,
+        "TC_001":
+          {
+            "homepageLogo": "//li[@class='logo']/a",
+            "TopMenuOptions": "Products|Developers|Pricing|Blog|About Us|Partners"
+          }
+        ,
+        "TC_002":
+          {
+            "xpath": "//ul[@id='menu-primary-navigation']//a[text()='Get A Quote']",
+            "elementType": "link",
+            "elementName": "Get A Quote",
+            "fontFamily": "sans-serif",
+            "fontsize": "13px",
+            "fontweight": "700",
+            "color": "#ffffff",
+            "bgcolor": "#05ce7c"
+          }
+        ,
+        "TC_003":
+          {
+            "xpath": "//h3[text()='We see you for you.']",
+            "elementType": "header",
+            "elementName": "We see you for you.",
+            "fontFamily": "Roboto Slab",
+            "fontsize": "24px",
+            "fontweight": "800",
+            "color": "#424242",
+            "bgcolor": "#000000"
+          }
+
+      }
+      ]
+  }
